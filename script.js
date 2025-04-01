@@ -1,83 +1,106 @@
-let jobs = [];
-let activeFilters = [];
+document.addEventListener("DOMContentLoaded", () => {
+    const jobContainer = document.getElementById("jobContainer");
+    const filterBar = document.getElementById("filterBar");
 
-const jobContainer = document.getElementById("jobContainer");
-const filterBar = document.getElementById("filterBar");
+    let jobsData = [];
+    let selectedFilters = [];
 
+    // Fetch data from JSON file
+    fetch("data.json")
+        .then(response => response.json())
+        .then(data => {
+            jobsData = data;
+            displayJobs(jobsData);
+        })
+        .catch(error => console.error("Error fetching data:", error));
 
-async function fetchData() {
-    try {
-        const res = await fetch("data.json"); 
-        jobs = await res.json(); 
-        renderJobs();
-    } catch (error) {
-        console.error("Error loading jobs:", error);
+    // Function to display jobs
+    function displayJobs(jobs) {
+        jobContainer.innerHTML = ""; // Clear previous jobs
+        jobs.forEach(job => {
+            const jobElement = document.createElement("div");
+            jobElement.classList.add("job-listing");
+
+            jobElement.innerHTML = `
+                <div class="logo-area">
+                    <div><img src="${job.logo}" alt="${job.company}"></div>
+                    <div class="info-area">
+                        <div class="featured">
+                            <h6 class="company">${job.company}</h6>
+                            ${job.new ? `<h6 class="new">NEW!</h6>` : ""}
+                            ${job.featured ? `<h6 class="ft">FEATURED</h6>` : ""}
+                        </div>
+                        <h4 class="position">${job.position}</h4>
+                        <p class="paragraph">${job.postedAt} • ${job.contract} • ${job.location}</p>
+                    </div>
+                </div>
+                <div class="job-tags">
+                    <span class="filter-btn">${job.role}</span>
+                    <span class="filter-btn">${job.level}</span>
+                    ${job.languages.map(lang => `<span class="filter-btn">${lang}</span>`).join("")}
+                    ${job.tools.map(tool => `<span class="filter-btn">${tool}</span>`).join("")}
+                </div>
+            `;
+
+            jobContainer.appendChild(jobElement);
+        });
+
+        // Add event listeners to filter buttons
+        document.querySelectorAll(".filter-btn").forEach(button => {
+            button.addEventListener("click", () => {
+                const filterValue = button.textContent;
+                if (!selectedFilters.includes(filterValue)) {
+                    selectedFilters.push(filterValue);
+                    updateFilters();
+                    filterJobs();
+                }
+            });
+        });
     }
-}
 
+    // Function to update filter bar
+    function updateFilters() {
+        filterBar.innerHTML = ""; // Clear previous filters
 
-function renderJobs() {
-    jobContainer.innerHTML = "";
-    
-    
-    const filteredJobs = jobs.filter(job =>
-        activeFilters.every(tag =>
-            [job.role, job.level, ...job.languages, ...job.tools].includes(tag)
-        )
-    );
+        selectedFilters.forEach(filter => {
+            const filterTag = document.createElement("span");
+            filterTag.textContent = filter;
+            filterTag.classList.add("active-filter");
 
-    
-    filteredJobs.forEach(job => {
-        const jobEl = document.createElement("div");
-        jobEl.classList.add("job-listing");
-        jobEl.innerHTML = `
-            <div>
-                <h3>${job.position}</h3>
-                <p>${job.company}</p>
-            </div>
-            <div class="job-tags">
-                ${[job.role, job.level, ...job.languages, ...job.tools]
-                    .map(tag => `<span onclick="addFilter('${tag}')">${tag}</span>`).join(" ")}
-            </div>
-        `;
-        jobContainer.appendChild(jobEl);
-    });
+            const closeBtn = document.createElement("span");
+            closeBtn.textContent = "✖";
+            closeBtn.classList.add("remove-filter");
+            closeBtn.addEventListener("click", () => {
+                selectedFilters = selectedFilters.filter(f => f !== filter);
+                updateFilters();
+                filterJobs();
+            });
 
-    
-    if (activeFilters.length > 0) {
-        filterBar.innerHTML += `<button class="clear-filters" onclick="clearFilters()">Clear Filters</button>`;
+            filterTag.appendChild(closeBtn);
+            filterBar.appendChild(filterTag);
+        });
+
+        // Add Clear button if filters exist
+        if (selectedFilters.length > 0) {
+            const clearBtn = document.createElement("button");
+            clearBtn.textContent = "Clear";
+            clearBtn.classList.add("clear-filters");
+            clearBtn.addEventListener("click", () => {
+                selectedFilters = [];
+                updateFilters();
+                filterJobs();
+            });
+            filterBar.appendChild(clearBtn);
+        }
     }
-}
 
+    // Function to filter jobs
+    function filterJobs() {
+        const filteredJobs = jobsData.filter(job => {
+            const jobTags = [job.role, job.level, ...job.languages, ...job.tools];
+            return selectedFilters.every(filter => jobTags.includes(filter));
+        });
 
-function addFilter(tag) {
-    if (!activeFilters.includes(tag)) {
-        activeFilters.push(tag);
-        renderFilters();
-        renderJobs();
+        displayJobs(filteredJobs);
     }
-}
-
-
-function removeFilter(tag) {
-    activeFilters = activeFilters.filter(f => f !== tag);
-    renderFilters();
-    renderJobs();
-}
-
-
-function renderFilters() {
-    filterBar.innerHTML = activeFilters.map(tag =>
-        `<span onclick="removeFilter('${tag}')">${tag} ✖</span>`
-    ).join(" ");
-}
-
-
-function clearFilters() {
-    activeFilters = [];
-    renderFilters();
-    renderJobs();
-}
-
-
-fetchData();
+});
